@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>小城市聖誕地圖</title>
+  <title>城市聖誕地圖</title>
   <style>
     html, body {
       height: 100%;
@@ -18,6 +18,9 @@
 <body>
 
 <div id="map"></div>
+<div><button id="shareBtn" style="position:absolute; top:10px; left:10px; z-index:5; padding:8px 12px;">
+  生成分享連結
+</button></div>
 
 <script>
   window.initMap = function () {
@@ -28,6 +31,30 @@
 
     let markers = [];
     let pathLine = null;
+
+
+//
+document.getElementById("shareBtn").addEventListener("click", () => {
+  //1.如果還沒選兩個點，就提醒
+  if (markers.length < 2) {
+    alert("請先設定起點和終點！");
+    return;
+  }
+
+  //2.取得起點和終點座標
+  const start = markers[0].getPosition(); // 起點 = 聖誕老人
+  const end = markers[1].getPosition();   // 終點 = 麋鹿
+
+  //3.生成分享網址
+  const shareUrl = `${window.location.origin}${window.location.pathname}?start=${start.lat()},${start.lng()}&end=${end.lat()},${end.lng()}`;
+
+  //4.用對話框讓使用者複製
+  prompt("分享連結如下（複製給朋友）:", shareUrl);
+});
+
+
+
+
 
     // 動畫函數：讓 Marker 從 start 移動到 end
     function animateMarker(marker, start, end, duration) {
