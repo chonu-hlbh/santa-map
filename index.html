@@ -1,140 +1,165 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <title>城市聖誕地圖</title>
-  <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-    }
-    #map {
-      height: 100%;
-      width: 100%;
-      background: #eee;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>小城市聖誕地圖</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  #map { height: 100%; width: 100%; background: #eee; }
+
+  /* 提示文字 */
+  #hint {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    background: white;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+    font-weight: bold;
+    transition: opacity 0.5s;
+  }
+
+  /* 分享按鈕 */
+  #shareBtn {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    padding: 12px 20px;
+    background: #e53935;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    display: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transition: background 0.5s, opacity 0.5s;
+  }
+
+  #shareBtn:hover { background: #d32f2f; }
+</style>
 </head>
 <body>
 
 <div id="map"></div>
-<div><button id="shareBtn" style="position:absolute; top:10px; left:10px; z-index:5; padding:8px 12px;">
-  生成分享連結
-</button></div>
+<div id="hint">點擊設定起點 → 點擊設定終點</div>
+<button id="shareBtn">🎁 分享地圖給朋友 🎁</button>
 
 <script>
-  window.initMap = function () {
-    const map = new google.maps.Map(document.getElementById("map"), {
-      center: { lat: 25.033964, lng: 121.564468 },
-      zoom: 14
-    });
+let markers = [];
+let pathLine = null;
+let colors = ['#e53935','#fdd835','#43a047','#1e88e5'];
+let colorIndex = 0;
 
-    let markers = [];
-    let pathLine = null;
+// 直線動畫：麋鹿從起點移動到終點
+function animateMarkerStraight(marker, start, end, duration) {
+  const frames = 200;
+  let count = 0;
+  const latLngs = [];
 
-
-//
-document.getElementById("shareBtn").addEventListener("click", () => {
-  //1.如果還沒選兩個點，就提醒
-  if (markers.length < 2) {
-    alert("請先設定起點和終點！");
-    return;
+  for (let i = 0; i <= frames; i++) {
+    const lat = start.lat() + (end.lat() - start.lat()) * (i/frames);
+    const lng = start.lng() + (end.lng() - start.lng()) * (i/frames);
+    latLngs.push(new google.maps.LatLng(lat, lng));
   }
 
-  //2.取得起點和終點座標
-  const start = markers[0].getPosition(); // 起點 = 聖誕老人
-  const end = markers[1].getPosition();   // 終點 = 麋鹿
+  const interval = setInterval(() => {
+    if (count >= latLngs.length) {
+      clearInterval(interval);
+    } else {
+      marker.setPosition(latLngs[count]);
+      count++;
+    }
+  }, duration / frames);
+}
 
-  //3.生成分享網址
-  const shareUrl = `${window.location.origin}${window.location.pathname}?start=${start.lat()},${start.lng()}&end=${end.lat()},${end.lng()}`;
+window.initMap = function() {
+  const map = new google.maps.Map(document.getElementById("map"), {
+    center: { lat: 25.033964, lng: 121.564468 },
+    zoom: 14
+  });
 
-  //4.用對話框讓使用者複製
-  prompt("分享連結如下（複製給朋友）:", shareUrl);
-});
+  const hint = document.getElementById("hint");
+  const shareBtn = document.getElementById("shareBtn");
 
+  map.addListener("click", function(event) {
+    const lat = event.latLng.lat();
+    const lng = event.latLng.lng();
 
-
-
-
-    // 動畫函數：讓 Marker 從 start 移動到 end
-    function animateMarker(marker, start, end, duration) {
-      const frames = 100;
-      let count = 0;
-      const deltaLat = (end.lat() - start.lat()) / frames;
-      const deltaLng = (end.lng() - start.lng()) / frames;
-
-      const interval = setInterval(() => {
-        if (count >= frames) {
-          clearInterval(interval);
-        } else {
-          const lat = start.lat() + deltaLat * count;
-          const lng = start.lng() + deltaLng * count;
-          marker.setPosition({ lat, lng });
-          count++;
-        }
-      }, duration / frames);
+    // 超過兩個標記時重置
+    if (markers.length >= 2) {
+      markers.forEach(m => m.setMap(null));
+      markers = [];
+      if (pathLine) pathLine.setMap(null);
+      pathLine = null;
+      hint.innerText = "點擊設定起點 → 點擊設定終點";
+      hint.style.opacity = 1;
+      shareBtn.style.display = "none";
     }
 
-    // 點擊地圖事件
-    map.addListener("click", function(event) {
-      const lat = event.latLng.lat();
-      const lng = event.latLng.lng();
-      console.log("你點的位置：", lat, lng);
+    const iconUrl = markers.length === 0
+      ? "https://icons.iconarchive.com/icons/artdesigner/christmas/32/santa-icon.png"
+      : "https://icons.iconarchive.com/icons/psdblast/flat-christmas/32/reindeer-deer-icon.png";
 
-      // 如果已有兩個標記，點第三次就清空
-      if (markers.length >= 2) {
-        markers.forEach(m => m.setMap(null));
-        markers = [];
-        if (pathLine) {
-          pathLine.setMap(null);
-          pathLine = null;
-        }
-      }
-
-      // 圖標 URL
-      const iconUrl = markers.length === 0
-        ? "https://icons.iconarchive.com/icons/artdesigner/christmas/32/santa-icon.png" // 🎅
-        : "https://icons.iconarchive.com/icons/psdblast/flat-christmas/32/reindeer-deer-icon.png"; // 🦌
-
-      // 建立標記
-      const marker = new google.maps.Marker({
-        position: event.latLng,
-        map: map,
-        icon: {
-          url: iconUrl,
-          scaledSize: new google.maps.Size(32, 32)
-        }
-      });
-      markers.push(marker);
-
-      // 如果有兩個標記，畫路線並動畫移動麋鹿
-      if (markers.length === 2) {
-        pathLine = new google.maps.Polyline({
-          path: [markers[0].getPosition(), markers[1].getPosition()],
-          geodesic: true,
-          strokeColor: "#FF0000",
-          strokeOpacity: 1.0,
-          strokeWeight: 3,
-          map: map
-        });
-
-        // 讓麋鹿從起點移動到終點
-        const reindeer = markers[1]; // 第二個標記是麋鹿
-        const start = markers[0].getPosition();
-        const end = markers[1].getPosition();
-        reindeer.setPosition(start); // 從起點開始
-        animateMarker(reindeer, start, end, 3000); // 3秒完成
-      }
+    const marker = new google.maps.Marker({
+      position: event.latLng,
+      map: map,
+      icon: { url: iconUrl, scaledSize: new google.maps.Size(32,32) }
     });
-  };
+    markers.push(marker);
+
+    if (markers.length === 1) {
+      hint.innerText = "點擊設定終點";
+    } else if (markers.length === 2) {
+      hint.style.opacity = 0;
+
+      // 顯示分享按鈕
+      shareBtn.style.display = "block";
+      shareBtn.style.opacity = 0;
+      setTimeout(() => shareBtn.style.opacity = 1, 50);
+
+      // 彩色閃光
+      setInterval(() => {
+        shareBtn.style.background = colors[colorIndex];
+        colorIndex = (colorIndex + 1) % colors.length;
+      }, 500);
+
+      // 畫直線路線
+      const start = markers[0].getPosition();
+      const end = markers[1].getPosition();
+      pathLine = new google.maps.Polyline({
+        path: [start, end],
+        geodesic: true,
+        strokeColor: "#FF0000",
+        strokeOpacity: 1.0,
+        strokeWeight: 3,
+        map: map
+      });
+
+      // 讓麋鹿沿直線移動
+      const reindeer = markers[1];
+      reindeer.setPosition(start);
+      animateMarkerStraight(reindeer, start, end, 3000);
+    }
+  });
+
+  // 分享按鈕功能
+  shareBtn.addEventListener("click", () => {
+    if (markers.length < 2) return;
+    const start = markers[0].getPosition();
+    const end = markers[1].getPosition();
+    const shareUrl = `${window.location.origin}${window.location.pathname}?start=${start.lat()},${start.lng()}&end=${end.lat()},${end.lng()}`;
+    prompt("分享連結如下（Ctrl+C複製給朋友）:", shareUrl);
+  });
+};
 </script>
 
-<!-- Google Maps API -->
-<script
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAQjNbg6Zn4742aG9zNQc1T7UzK-DcW100&callback=initMap"
-  async
-  defer
-></script>
-
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAQjNbg6Zn4742aG9zNQc1T7UzK-DcW100&callback=initMap" async defer></script>
 </body>
 </html>
