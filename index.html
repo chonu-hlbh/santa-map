@@ -2,12 +2,11 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>小城市聖誕地圖</title>
+<title>城市聖誕地圖</title>
 <style>
   html, body { height: 100%; margin: 0; }
   #map { height: 100%; width: 100%; background: #eee; }
 
-  /* 提示文字 */
   #hint {
     position: absolute;
     top: 10px;
@@ -22,7 +21,6 @@
     transition: opacity 0.5s;
   }
 
-  /* 分享按鈕 */
   #shareBtn {
     position: absolute;
     top: 60px;
@@ -62,21 +60,29 @@ function animateMarkerStraight(marker, start, end, duration) {
   const frames = 200;
   let count = 0;
   const latLngs = [];
-
   for (let i = 0; i <= frames; i++) {
     const lat = start.lat() + (end.lat() - start.lat()) * (i/frames);
     const lng = start.lng() + (end.lng() - start.lng()) * (i/frames);
     latLngs.push(new google.maps.LatLng(lat, lng));
   }
-
   const interval = setInterval(() => {
-    if (count >= latLngs.length) {
-      clearInterval(interval);
-    } else {
-      marker.setPosition(latLngs[count]);
-      count++;
-    }
+    if (count >= latLngs.length) clearInterval(interval);
+    else marker.setPosition(latLngs[count++]);
   }, duration / frames);
+}
+
+// 解析 URL 參數
+function getUrlCoords() {
+  const params = new URLSearchParams(window.location.search);
+  const startParam = params.get("start");
+  const endParam = params.get("end");
+  if (!startParam || !endParam) return null;
+  const [startLat, startLng] = startParam.split(",").map(Number);
+  const [endLat, endLng] = endParam.split(",").map(Number);
+  return {
+    start: new google.maps.LatLng(startLat, startLng),
+    end: new google.maps.LatLng(endLat, endLng)
+  };
 }
 
 window.initMap = function() {
@@ -88,11 +94,45 @@ window.initMap = function() {
   const hint = document.getElementById("hint");
   const shareBtn = document.getElementById("shareBtn");
 
-  map.addListener("click", function(event) {
-    const lat = event.latLng.lat();
-    const lng = event.latLng.lng();
+  // 如果 URL 有座標，自動建立標記與路線
+  const coords = getUrlCoords();
+  if (coords) {
+    // 起點
+    const startMarker = new google.maps.Marker({
+      position: coords.start,
+      map: map,
+      icon: { url: "https://icons.iconarchive.com/icons/artdesigner/christmas/32/santa-icon.png", scaledSize: new google.maps.Size(32,32) }
+    });
+    markers.push(startMarker);
 
-    // 超過兩個標記時重置
+    // 終點
+    const endMarker = new google.maps.Marker({
+      position: coords.end,
+      map: map,
+      icon: { url: "https://icons.iconarchive.com/icons/psdblast/flat-christmas/32/reindeer-deer-icon.png", scaledSize: new google.maps.Size(32,32) }
+    });
+    markers.push(endMarker);
+
+    // 畫直線路線
+    pathLine = new google.maps.Polyline({
+      path: [coords.start, coords.end],
+      geodesic: true,
+      strokeColor: "#FF0000",
+      strokeOpacity: 1.0,
+      strokeWeight: 3,
+      map: map
+    });
+
+    // 麋鹿從起點移動到終點
+    endMarker.setPosition(coords.start);
+    animateMarkerStraight(endMarker, coords.start, coords.end, 3000);
+
+    // 顯示分享按鈕
+    shareBtn.style.display = "block";
+  }
+
+  // 點擊地圖設定標記
+  map.addListener("click", function(event) {
     if (markers.length >= 2) {
       markers.forEach(m => m.setMap(null));
       markers = [];
@@ -114,25 +154,22 @@ window.initMap = function() {
     });
     markers.push(marker);
 
-    if (markers.length === 1) {
-      hint.innerText = "點擊設定終點";
-    } else if (markers.length === 2) {
+    if (markers.length === 1) hint.innerText = "點擊設定終點";
+    else if (markers.length === 2) {
       hint.style.opacity = 0;
-
-      // 顯示分享按鈕
       shareBtn.style.display = "block";
       shareBtn.style.opacity = 0;
       setTimeout(() => shareBtn.style.opacity = 1, 50);
 
-      // 彩色閃光
+      // 分享按鈕閃光
       setInterval(() => {
         shareBtn.style.background = colors[colorIndex];
         colorIndex = (colorIndex + 1) % colors.length;
       }, 500);
 
-      // 畫直線路線
       const start = markers[0].getPosition();
       const end = markers[1].getPosition();
+
       pathLine = new google.maps.Polyline({
         path: [start, end],
         geodesic: true,
@@ -142,20 +179,25 @@ window.initMap = function() {
         map: map
       });
 
-      // 讓麋鹿沿直線移動
       const reindeer = markers[1];
       reindeer.setPosition(start);
       animateMarkerStraight(reindeer, start, end, 3000);
     }
   });
 
-  // 分享按鈕功能
-  shareBtn.addEventListener("click", () => {
+  // 分享按鈕：自動複製到剪貼簿
+  shareBtn.addEventListener("click", async () => {
     if (markers.length < 2) return;
     const start = markers[0].getPosition();
     const end = markers[1].getPosition();
     const shareUrl = `${window.location.origin}${window.location.pathname}?start=${start.lat()},${start.lng()}&end=${end.lat()},${end.lng()}`;
-    prompt("分享連結如下（Ctrl+C複製給朋友）:", shareUrl);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      alert("分享連結已複製到剪貼簿！🎉");
+    } catch (err) {
+      console.error("複製失敗", err);
+      alert("無法複製到剪貼簿，請手動複製。");
+    }
   });
 };
 </script>
