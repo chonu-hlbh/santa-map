@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>小城市聖誕地圖</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    #map {
+      height: 100%;
+      width: 100%;
+      background: #eee;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script>
+  window.initMap = function () {
+    const map = new google.maps.Map(document.getElementById("map"), {
+      center: { lat: 25.033964, lng: 121.564468 },
+      zoom: 14
+    });
+
+    let markers = [];
+    let pathLine = null;
+
+    // 動畫函數：讓 Marker 從 start 移動到 end
+    function animateMarker(marker, start, end, duration) {
+      const frames = 100;
+      let count = 0;
+      const deltaLat = (end.lat() - start.lat()) / frames;
+      const deltaLng = (end.lng() - start.lng()) / frames;
+
+      const interval = setInterval(() => {
+        if (count >= frames) {
+          clearInterval(interval);
+        } else {
+          const lat = start.lat() + deltaLat * count;
+          const lng = start.lng() + deltaLng * count;
+          marker.setPosition({ lat, lng });
+          count++;
+        }
+      }, duration / frames);
+    }
+
+    // 點擊地圖事件
+    map.addListener("click", function(event) {
+      const lat = event.latLng.lat();
+      const lng = event.latLng.lng();
+      console.log("你點的位置：", lat, lng);
+
+      // 如果已有兩個標記，點第三次就清空
+      if (markers.length >= 2) {
+        markers.forEach(m => m.setMap(null));
+        markers = [];
+        if (pathLine) {
+          pathLine.setMap(null);
+          pathLine = null;
+        }
+      }
+
+      // 圖標 URL
+      const iconUrl = markers.length === 0
+        ? "https://icons.iconarchive.com/icons/artdesigner/christmas/32/santa-icon.png" // 🎅
+        : "https://icons.iconarchive.com/icons/psdblast/flat-christmas/32/reindeer-deer-icon.png"; // 🦌
+
+      // 建立標記
+      const marker = new google.maps.Marker({
+        position: event.latLng,
+        map: map,
+        icon: {
+          url: iconUrl,
+          scaledSize: new google.maps.Size(32, 32)
+        }
+      });
+      markers.push(marker);
+
+      // 如果有兩個標記，畫路線並動畫移動麋鹿
+      if (markers.length === 2) {
+        pathLine = new google.maps.Polyline({
+          path: [markers[0].getPosition(), markers[1].getPosition()],
+          geodesic: true,
+          strokeColor: "#FF0000",
+          strokeOpacity: 1.0,
+          strokeWeight: 3,
+          map: map
+        });
+
+        // 讓麋鹿從起點移動到終點
+        const reindeer = markers[1]; // 第二個標記是麋鹿
+        const start = markers[0].getPosition();
+        const end = markers[1].getPosition();
+        reindeer.setPosition(start); // 從起點開始
+        animateMarker(reindeer, start, end, 3000); // 3秒完成
+      }
+    });
+  };
+</script>
+
+<!-- Google Maps API -->
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAQjNbg6Zn4742aG9zNQc1T7UzK-DcW100&callback=initMap"
+  async
+  defer
+></script>
+
+</body>
+</html>
