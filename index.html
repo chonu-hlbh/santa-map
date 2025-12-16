@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>城市聖誕地圖</title>
+<title>小城市聖誕地圖</title>
 <style>
   html, body { height: 100%; margin: 0; }
   #map { height: 100%; width: 100%; background: #eee; }
@@ -55,7 +55,7 @@ let pathLine = null;
 let colors = ['#e53935','#fdd835','#43a047','#1e88e5'];
 let colorIndex = 0;
 
-// 直線動畫：麋鹿從起點移動到終點
+// 直線動畫
 function animateMarkerStraight(marker, start, end, duration) {
   const frames = 200;
   let count = 0;
@@ -76,26 +76,41 @@ function getUrlCoords() {
   const params = new URLSearchParams(window.location.search);
   const startParam = params.get("start");
   const endParam = params.get("end");
+  const centerParam = params.get("center");
+  const zoomParam = params.get("zoom");
+  
   if (!startParam || !endParam) return null;
+
   const [startLat, startLng] = startParam.split(",").map(Number);
   const [endLat, endLng] = endParam.split(",").map(Number);
+  
+  let center = null, zoom = null;
+  if (centerParam && zoomParam) {
+    const [centerLat, centerLng] = centerParam.split(",").map(Number);
+    center = new google.maps.LatLng(centerLat, centerLng);
+    zoom = Number(zoomParam);
+  }
+
   return {
     start: new google.maps.LatLng(startLat, startLng),
-    end: new google.maps.LatLng(endLat, endLng)
+    end: new google.maps.LatLng(endLat, endLng),
+    center,
+    zoom
   };
 }
 
 window.initMap = function() {
-  const map = new google.maps.Map(document.getElementById("map"), {
-    center: { lat: 25.033964, lng: 121.564468 },
-    zoom: 14
-  });
+  const coords = getUrlCoords();
+  const mapOptions = {
+    center: coords && coords.center ? coords.center : { lat: 25.033964, lng: 121.564468 },
+    zoom: coords && coords.zoom ? coords.zoom : 14
+  };
+  const map = new google.maps.Map(document.getElementById("map"), mapOptions);
 
   const hint = document.getElementById("hint");
   const shareBtn = document.getElementById("shareBtn");
 
   // 如果 URL 有座標，自動建立標記與路線
-  const coords = getUrlCoords();
   if (coords) {
     // 起點
     const startMarker = new google.maps.Marker({
@@ -185,12 +200,15 @@ window.initMap = function() {
     }
   });
 
-  // 分享按鈕：自動複製到剪貼簿
+  // 分享按鈕：自動複製到剪貼簿，帶入 center 和 zoom
   shareBtn.addEventListener("click", async () => {
     if (markers.length < 2) return;
     const start = markers[0].getPosition();
     const end = markers[1].getPosition();
-    const shareUrl = `${window.location.origin}${window.location.pathname}?start=${start.lat()},${start.lng()}&end=${end.lat()},${end.lng()}`;
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    const shareUrl = `${window.location.origin}${window.location.pathname}?start=${start.lat()},${start.lng()}&end=${end.lat()},${end.lng()}&center=${center.lat()},${center.lng()}&zoom=${zoom}`;
+    
     try {
       await navigator.clipboard.writeText(shareUrl);
       alert("分享連結已複製到剪貼簿！🎉");
