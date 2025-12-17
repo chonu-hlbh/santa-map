@@ -41,6 +41,44 @@
   }
 
   #shareBtn:hover { background: #d32f2f; }
+
+  /* 可用次數進度條 */
+  #quotaContainer {
+    position: absolute;
+    top: 110px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    width: 200px;
+    height: 20px;
+    background: #eee;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  #quotaBar {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,#43a047,#1e88e5);
+    transition: width 0.3s;
+    animation: flow 2s linear infinite;
+  }
+  #quotaText {
+    position: absolute;
+    top: 135px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    font-weight: bold;
+    background: rgba(255,255,255,0.8);
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: 14px;
+  }
+  @keyframes flow {
+    0% { background-position: 0 0; }
+    100% { background-position: 200% 0; }
+  }
 </style>
 </head>
 <body>
@@ -49,11 +87,31 @@
 <div id="hint">點擊設定起點 → 點擊設定終點</div>
 <button id="shareBtn">🎁 分享地圖給朋友 🎁</button>
 
+<div id="quotaContainer">
+  <div id="quotaBar"></div>
+</div>
+<div id="quotaText"></div>
+
 <script>
 let markers = [];
 let pathLine = null;
 let colors = ['#e53935','#fdd835','#43a047','#1e88e5'];
 let colorIndex = 0;
+
+// 每日最大使用次數
+const MAX_QUOTA = 150;
+let usedQuota = Number(localStorage.getItem("usedQuota") || 0);
+usedQuota = Math.min(usedQuota + 1, MAX_QUOTA); // 打開網頁就算一次
+localStorage.setItem("usedQuota", usedQuota);
+
+// 更新剩餘次數進度條
+function updateQuotaDisplay() {
+  const remaining = MAX_QUOTA - usedQuota;
+  const percent = (remaining / MAX_QUOTA) * 100;
+  document.getElementById("quotaBar").style.width = percent + "%";
+  document.getElementById("quotaText").innerText = `剩餘可用次數：${remaining}/${MAX_QUOTA}`;
+}
+updateQuotaDisplay();
 
 // 直線動畫
 function animateMarkerStraight(marker, start, end, duration) {
@@ -110,9 +168,8 @@ window.initMap = function() {
   const hint = document.getElementById("hint");
   const shareBtn = document.getElementById("shareBtn");
 
-  // 如果 URL 有座標，自動建立標記與路線
+  // URL 有座標時自動生成標記
   if (coords) {
-    // 起點
     const startMarker = new google.maps.Marker({
       position: coords.start,
       map: map,
@@ -120,7 +177,6 @@ window.initMap = function() {
     });
     markers.push(startMarker);
 
-    // 終點
     const endMarker = new google.maps.Marker({
       position: coords.end,
       map: map,
@@ -128,7 +184,6 @@ window.initMap = function() {
     });
     markers.push(endMarker);
 
-    // 畫直線路線
     pathLine = new google.maps.Polyline({
       path: [coords.start, coords.end],
       geodesic: true,
@@ -138,11 +193,8 @@ window.initMap = function() {
       map: map
     });
 
-    // 麋鹿從起點移動到終點
     endMarker.setPosition(coords.start);
     animateMarkerStraight(endMarker, coords.start, coords.end, 3000);
-
-    // 顯示分享按鈕
     shareBtn.style.display = "block";
   }
 
@@ -176,7 +228,7 @@ window.initMap = function() {
       shareBtn.style.opacity = 0;
       setTimeout(() => shareBtn.style.opacity = 1, 50);
 
-      // 分享按鈕閃光
+      // 分享按鈕彩色閃光
       setInterval(() => {
         shareBtn.style.background = colors[colorIndex];
         colorIndex = (colorIndex + 1) % colors.length;
@@ -200,7 +252,7 @@ window.initMap = function() {
     }
   });
 
-  // 分享按鈕：自動複製到剪貼簿，帶入 center 和 zoom
+  // 分享功能：自動複製連結
   shareBtn.addEventListener("click", async () => {
     if (markers.length < 2) return;
     const start = markers[0].getPosition();
@@ -220,6 +272,6 @@ window.initMap = function() {
 };
 </script>
 
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAQjNbg6Zn4742aG9zNQc1T7UzK-DcW100&callback=initMap" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAQjNbg6Zn4742aG9zNQc1T7UzK-DcW100&callback=initMap&v=weekly" async defer></script>
 </body>
 </html>
