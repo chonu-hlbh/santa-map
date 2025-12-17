@@ -23,7 +23,7 @@
 
   #shareBtn {
     position: absolute;
-    top: 60px;
+    top:110px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 5;
@@ -44,7 +44,7 @@
 
   #quotaContainer {
     position: absolute;
-    top: 110px;
+    top: 60px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 5;
@@ -64,7 +64,7 @@
   }
   #quotaText {
     position: absolute;
-    top: 135px;
+    top: 85px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 5;
@@ -78,9 +78,21 @@
     0% { background-position: 0 0; }
     100% { background-position: 200% 0; }
   }
+
+  #musicBtn {
+    position: fixed;
+    top: 60px;
+    left: 60%;
+    font-size: 40px;
+    z-index: 999;
+  }
+
 </style>
 </head>
 <body>
+<!-- 🎵 音樂 -->
+<audio id="bgm" src="christmas-jazz.mp3" loop></audio>
+<button id="musicBtn">🎵</button>
 
 <div id="map"></div>
 <div id="hint">點擊設定起點 → 點擊設定終點</div>
@@ -131,20 +143,23 @@ function updateQuotaDisplay() {
 }
 updateQuotaDisplay();
 
-// 直線動畫
-function animateMarkerStraight(marker, start, end, duration) {
+// 大圓線動畫
+function animateMarkerGreatCircle(marker, start, end, duration) {
   const frames = 200;
   let count = 0;
   const latLngs = [];
   for (let i = 0; i <= frames; i++) {
-    const lat = start.lat() + (end.lat() - start.lat()) * (i/frames);
-    const lng = start.lng() + (end.lng() - start.lng()) * (i/frames);
-    latLngs.push(new google.maps.LatLng(lat, lng));
+    latLngs.push(google.maps.geometry.spherical.interpolate(start, end, i / frames));
   }
   const interval = setInterval(() => {
     if (count >= latLngs.length) clearInterval(interval);
     else marker.setPosition(latLngs[count++]);
   }, duration / frames);
+}
+
+// 計算航向
+function getHeading(start, end) {
+  return google.maps.geometry.spherical.computeHeading(start, end);
 }
 
 // 解析 URL 參數
@@ -212,7 +227,7 @@ window.initMap = function() {
     });
 
     endMarker.setPosition(coords.start);
-    animateMarkerStraight(endMarker, coords.start, coords.end, 3000);
+    animateMarkerGreatCircle(endMarker, coords.start, coords.end, 3000);
     shareBtn.style.display = "block";
   }
 
@@ -266,7 +281,7 @@ window.initMap = function() {
 
       const reindeer = markers[1];
       reindeer.setPosition(start);
-      animateMarkerStraight(reindeer, start, end, 3000);
+      animateMarkerGreatCircle(reindeer, start, end, 3000);
     }
   });
 
@@ -288,8 +303,17 @@ window.initMap = function() {
     }
   });
 };
+
+// === 音樂控制 ===
+document.getElementById("musicBtn").onclick = () => {
+  const bgm = document.getElementById("bgm");
+  bgm.volume = 0.5;
+
+  if (bgm.paused) bgm.play();
+  else bgm.pause();
+};
 </script>
 
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAQjNbg6Zn4742aG9zNQc1T7UzK-DcW100&callback=initMap&v=weekly" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAQjNbg6Zn4742aG9zNQc1T7UzK-DcW100&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>
