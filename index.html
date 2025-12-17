@@ -42,7 +42,6 @@
 
   #shareBtn:hover { background: #d32f2f; }
 
-  /* 可用次數進度條 */
   #quotaContainer {
     position: absolute;
     top: 110px;
@@ -100,11 +99,30 @@ let colorIndex = 0;
 
 // 每日最大使用次數
 const MAX_QUOTA = 150;
+
+// 取得今天日期字串 YYYY-MM-DD
+function getTodayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+}
+
+// 讀取 localStorage
+let lastDate = localStorage.getItem("lastDate");
 let usedQuota = Number(localStorage.getItem("usedQuota") || 0);
-usedQuota = Math.min(usedQuota + 1, MAX_QUOTA); // 打開網頁就算一次
+
+// 如果今天是新的一天，重置使用次數
+const todayStr = getTodayStr();
+if (lastDate !== todayStr) {
+  usedQuota = 0;
+  localStorage.setItem("usedQuota", usedQuota);
+  localStorage.setItem("lastDate", todayStr);
+}
+
+// 打開網頁就算一次使用
+usedQuota = Math.min(usedQuota + 1, MAX_QUOTA);
 localStorage.setItem("usedQuota", usedQuota);
 
-// 更新剩餘次數進度條
+// 更新進度條
 function updateQuotaDisplay() {
   const remaining = MAX_QUOTA - usedQuota;
   const percent = (remaining / MAX_QUOTA) * 100;
